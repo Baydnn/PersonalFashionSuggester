@@ -1,20 +1,41 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# St-AI-list: Your Personal AI Stylist
 
-# Run and deploy your AI Studio app
+A wardrobe manager + AI stylist we built at SB Hacks! You can track all your clothes and get outfit suggestions based on what you actually own.
 
-This contains everything you need to run your app locally.
+## What it does
 
-View your app in AI Studio: https://ai.studio/apps/drive/1YiLBPC6_7WDVm_Gg4t576zKilIToFnNv
+- Add your clothes to a digital wardrobe (with pics if you want)
+- Set up your style profile (sizes, preferences, that kind of stuff)
+- Get AI-powered outfit recommendations using Gemini
+- Import/export your wardrobe data
 
-## Run Locally
+We were tired of staring at our closets with "nothing to wear" so we made this lol
 
-**Prerequisites:**  Node.js
+## Getting it running
 
+You'll need Node.js installed.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+```bash
+npm install
+```
+
+Create a `.env.local` file and add your Gemini API key:
+```
+GEMINI_API_KEY=your_key_here
+```
+
+Then just:
+```bash
+npm run dev
+```
+
+Open http://localhost:3000 and you're good to go!
+
+## Tech Stack
+
+- React + TypeScript
+- Vite for the build
+- Google Gemini API for the AI stuff
+- LocalStorage for data (keeping it simple)
+
+Built at SB Hacks 2026 ✌️
