@@ -182,3 +182,53 @@ export const createOutfitRecommendation = async (wardrobe: ClothingItem[], vibe:
     };
   }
 };
+
+// Generate an image of the user wearing the recommended outfit
+export const generateTryOnImage = async (userPhotoBase64: string, outfitDescription: string) => {
+  console.log("Generating virtual try-on image...");
+
+  // detect mime type dynamically
+  const mimeMatch = userPhotoBase64.match(/^data:([^;]+);base64,/);
+  const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+  const base64Data = userPhotoBase64.replace(/^data:([^;]+);base64,/, '');
+
+  try {
+    // nano banana pro / gemini pro image model
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-image-preview',
+      contents: {
+        parts: [
+          { 
+            text: `Generate a photorealistic high-quality image of the person in the provided reference image wearing the following outfit: ${outfitDescription}. 
+            Maintain the person's identity, facial features, body shape, and pose as much as possible. 
+            Ensure the clothing looks realistic and fits the person naturally. The background should be neutral and flattering.`
+          },
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Data
+            }
+          }
+        ]
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "3:4", // Best for portrait/outfit checks
+          // numberOfImages is not supported in generateContent ImageConfig
+        }
+      }
+    });
+
+    // Iterate through parts to find the image
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Error generating try-on image:", error);
+    return null;
+  }
+};

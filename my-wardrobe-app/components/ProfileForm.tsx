@@ -6,6 +6,41 @@ interface Props {
   onSave: (profile: UserProfile) => void;
 }
 
+// Reuse resizing logic to prevent LocalStorage quota exceeded errors
+const resizeImage = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const MAX_DIM = 800; // Keep profile pics slightly smaller for storage safety
+
+        if (width > height && width > MAX_DIM) {
+          height *= MAX_DIM / width;
+          width = MAX_DIM;
+        } else if (height > width && height > MAX_DIM) {
+          width *= MAX_DIM / height;
+          height = MAX_DIM;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 const ProfileForm: React.FC<Props> = ({ profile, onSave }) => {
   const [formData, setFormData] = useState<UserProfile>(profile);
 
@@ -13,6 +48,18 @@ const ProfileForm: React.FC<Props> = ({ profile, onSave }) => {
     e.preventDefault();
     onSave(formData);
     alert('Profile saved!');
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const resized = await resizeImage(file);
+        setFormData(prev => ({ ...prev, userPhoto: resized }));
+      } catch (err) {
+        console.error("Error processing profile photo", err);
+      }
+    }
   };
 
   return (
@@ -24,6 +71,32 @@ const ProfileForm: React.FC<Props> = ({ profile, onSave }) => {
       
       <form onSubmit={handleSubmit} className="space-y-6">
         
+        {/* Profile Photo Section */}
+        <div className="flex flex-col items-center mb-6">
+          <label className="block text-sm font-bold text-gray-700 mb-2">Your Photo (for Try-On)</label>
+          <div className="relative group cursor-pointer w-32 h-32 rounded-full overflow-hidden bg-gray-100 border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors">
+            {formData.userPhoto ? (
+              <img src={formData.userPhoto} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                <i className="fa-solid fa-user text-4xl"></i>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <i className="fa-solid fa-camera text-white text-xl"></i>
+            </div>
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={handlePhotoUpload}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+            />
+          </div>
+          <p className="text-xs text-gray-400 mt-2 text-center max-w-xs">
+            Upload a full-body or half-body photo to use the "Try On" feature.
+          </p>
+        </div>
+
         {/* basic stats */}
         <div className="grid grid-cols-2 gap-6">
           <div>

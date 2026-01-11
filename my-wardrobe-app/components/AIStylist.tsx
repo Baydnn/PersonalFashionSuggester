@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { ClothingItem, OutfitRecommendation, UserProfile } from '../types';
+import { generateTryOnImage } from "../geminiService";
 
 interface Props {
   wardrobe: ClothingItem[];
@@ -14,13 +15,36 @@ const AIStylist: React.FC<Props> = ({
   wardrobe, 
   onGetOutfit, 
   recommendation, 
-  loading 
+  loading,
+  profile,
+  onEditProfile
 }) => {
   const [vibe, setVibe] = useState('');
+  const [tryOnImage, setTryOnImage] = useState<string | null>(null);
+  const [isTryOnLoading, setIsTryOnLoading] = useState(false);
 
   const handleSubmit = () => {
     if (!vibe) return;
+    setTryOnImage(null); // reset try-on image on new request
     onGetOutfit(vibe);
+  };
+
+  const handleTryOn = async () => {
+    if (!profile.userPhoto || !recommendation) return;
+    
+    setIsTryOnLoading(true);
+    
+    const outfitDescription = recommendation.wardrobeItemIds
+      .map(id => {
+        const item = wardrobe.find(w => w.id === id);
+        return item ? `${item.color} ${item.type}` : '';
+      })
+      .filter(Boolean)
+      .join(', ');
+    
+    const result = await generateTryOnImage(profile.userPhoto, outfitDescription);
+    setTryOnImage(result);
+    setIsTryOnLoading(false);
   };
 
   const hasResult = !!recommendation && !loading;
@@ -129,6 +153,53 @@ const AIStylist: React.FC<Props> = ({
               </div>
             )}
           </div>
+
+          {/* VIRTUAL TRY ON SECTION */}
+          {recommendation.wardrobeItemIds?.length > 0 && (
+            <div className="bg-purple-50 border border-purple-100 rounded-xl p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold text-purple-900 flex items-center gap-2">
+                  <i className="fa-solid fa-camera-retro text-purple-600"></i> Virtual Try-On
+                </h3>
+              </div>
+
+              {!profile.userPhoto ? (
+                <div className="text-center py-6">
+                  <p className="text-purple-700 mb-3">Upload a photo of yourself in the Profile tab to enable Virtual Try-On!</p>
+                  <button onClick={onEditProfile} className="text-sm font-bold text-purple-600 hover:underline">
+                    Go to Profile →
+                  </button>
+                </div>
+              ) : (
+                <div>
+                   {/* Results Display */}
+                   {tryOnImage && (
+                     <div className="mb-6 rounded-lg overflow-hidden border-2 border-purple-200 shadow-md">
+                        <img src={tryOnImage} alt="Virtual Try On" className="w-full" />
+                     </div>
+                   )}
+
+                   {/* Action Button */}
+                   <button
+                     onClick={handleTryOn}
+                     disabled={isTryOnLoading}
+                     className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
+                   >
+                     {isTryOnLoading ? (
+                       <>
+                         <i className="fa-solid fa-spinner fa-spin"></i> Generating Image...
+                       </>
+                     ) : (
+                       <>
+                         <i className="fa-solid fa-wand-magic"></i> {tryOnImage ? 'Try It On Again' : 'Try It On?'}
+                       </>
+                     )}
+                   </button>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       )}
     </div>

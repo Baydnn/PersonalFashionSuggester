@@ -29,6 +29,7 @@ export interface UserProfile {
   gender?: string;
   location?: string; // important for weather vibes
   styleDescription?: string;
+  userPhoto?: string; // string of the user's selfie
 }
 
 export interface ClothingItem {
