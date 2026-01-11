@@ -1,0 +1,7 @@
+{
+  "name": "Simple Wardrobe Helper",
+  "description": "An easy-to-use MVP for managing your clothes and getting aesthetic outfit ideas using Gemini AI.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
