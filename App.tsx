@@ -93,15 +93,15 @@ const App: React.FC = () => {
       <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-blue-600">My Wardrobe</h1>
+            <h1 className="text-xl font-bold text-blue-600">St-AI-list</h1>
           </div>
           
           <div className="flex gap-4 text-sm">
             <button onClick={handleExportData} className="text-gray-600 hover:text-blue-600">
-              Save Backup
+              Export
             </button>
             <label className="text-gray-600 hover:text-blue-600 cursor-pointer">
-              Load Backup
+              Import
               <input type="file" className="hidden" accept=".json" onChange={handleFileUpload} />
             </label>
           </div>
@@ -125,7 +125,7 @@ const App: React.FC = () => {
               activeTab === 'profile' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'
             }`}
           >
-            My Profile
+            Profile
           </button>
         </div>
       </nav>
