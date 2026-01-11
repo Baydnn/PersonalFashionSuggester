@@ -18,6 +18,19 @@ export function AddClothingForm() {
     graphicSize: 'none',
     imageUrl: ''
   })
+  
+  const [aiAnalysis, setAiAnalysis] = useState<{
+    raw?: any
+    detected?: {
+      name?: string
+      color?: string
+      type?: string
+      fabricType?: string
+      brand?: string
+      graphicSize?: string
+      fit?: string
+    }
+  } | null>(null)
 
   const handleImageProcessed = (data: {
     name?: string
@@ -25,16 +38,112 @@ export function AddClothingForm() {
     type?: string
     fabricType?: string
     brand?: string
+    rawResponse?: any
   }) => {
     // Auto-fill form fields based on image analysis
-    setFormData(prev => ({
-      ...prev,
-      ...(data.name && { name: data.name }),
-      ...(data.color && { color: data.color }),
-      ...(data.type && { type: data.type as ClothingType }),
-      ...(data.fabricType && { fabricType: data.fabricType as FabricType }),
-      ...(data.brand && { brand: data.brand })
-    }))
+    console.log('handleImageProcessed called with data:', data)
+    
+    // Store AI analysis for display
+    if (data.rawResponse) {
+      setAiAnalysis({
+        raw: data.rawResponse,
+        detected: {
+          name: data.name,
+          color: data.color,
+          type: data.type,
+          fabricType: data.fabricType,
+          brand: data.brand,
+          graphicSize: data.rawResponse.graphicSize,
+          fit: data.rawResponse.fit
+        }
+      })
+    }
+    
+    // Normalize type values to match our enum (lowercase, handle variations)
+    const normalizeType = (type: string | undefined): ClothingType | undefined => {
+      if (!type) return undefined
+      const normalized = type.toLowerCase().trim()
+      const typeMap: Record<string, ClothingType> = {
+        't-shirt': 't-shirt',
+        'tshirt': 't-shirt',
+        't shirt': 't-shirt',
+        't_shirt': 't-shirt',
+        'hoodie': 'hoodie',
+        'jacket': 'jacket',
+        'sweater': 'sweater',
+        'pants': 'pants',
+        'shirt': 'shirt',
+        'shorts': 'shorts',
+        'dress': 'dress',
+        'other': 'other'
+      }
+      return typeMap[normalized] || 'other'
+    }
+    
+    // Normalize fabric type
+    const normalizeFabric = (fabric: string | undefined): FabricType | undefined => {
+      if (!fabric) return undefined
+      const normalized = fabric.toLowerCase().trim()
+      const fabricMap: Record<string, FabricType> = {
+        'cotton': 'cotton',
+        'polyester': 'polyester',
+        'wool': 'wool',
+        'denim': 'denim',
+        'leather': 'leather',
+        'silk': 'silk',
+        'linen': 'linen',
+        'other': 'other'
+      }
+      return fabricMap[normalized] || 'cotton'
+    }
+    
+    setFormData(prev => {
+      console.log('=== setFormData called, prev state:', prev)
+      
+      const updates: Partial<Omit<ClothingItem, 'id'>> = {}
+      
+      if (data.name && data.name.trim()) {
+        updates.name = data.name.trim()
+        console.log('Setting name:', updates.name)
+      }
+      if (data.color && data.color.trim()) {
+        updates.color = data.color.trim()
+        console.log('Setting color:', updates.color)
+      }
+      if (data.type) {
+        const normalizedType = normalizeType(data.type)
+        if (normalizedType) {
+          updates.type = normalizedType
+          console.log('Setting type:', updates.type, '(normalized from:', data.type, ')')
+        }
+      }
+      if (data.fabricType) {
+        const normalizedFabric = normalizeFabric(data.fabricType)
+        if (normalizedFabric) {
+          updates.fabricType = normalizedFabric
+          console.log('Setting fabricType:', updates.fabricType, '(normalized from:', data.fabricType, ')')
+        }
+      }
+      if (data.brand && data.brand.trim()) {
+        updates.brand = data.brand.trim()
+        console.log('Setting brand:', updates.brand)
+      }
+      
+      console.log('=== Updates object:', updates)
+      console.log('=== Keys in updates:', Object.keys(updates))
+      
+      const updated = { ...prev, ...updates }
+      console.log('=== Updated formData (full):', JSON.stringify(updated, null, 2))
+      console.log('=== Form field values:', {
+        name: updated.name,
+        color: updated.color,
+        type: updated.type,
+        fabricType: updated.fabricType,
+        brand: updated.brand
+      })
+      
+      return updated
+    })
   }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,15 +159,35 @@ export function AddClothingForm() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    const newItem: ClothingItem = {
-      ...formData,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9)
+    try {
+      // Save to backend first
+      const response = await fetch('/api/clothing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+        throw new Error(errorData.detail || `Failed to save clothing item: ${response.status}`)
+      }
+
+      const savedItem: ClothingItem = await response.json()
+      
+      // Then update frontend state
+      dispatch({ type: 'ADD_CLOTHING', payload: savedItem })
+      
+      alert('Clothing item added successfully!')
+    } catch (error) {
+      console.error('Error saving clothing item:', error)
+      alert(error instanceof Error ? error.message : 'Failed to save clothing item. Please try again.')
+      return
     }
-    
-    dispatch({ type: 'ADD_CLOTHING', payload: newItem })
     
     // Reset form
     setFormData({
@@ -72,6 +201,7 @@ export function AddClothingForm() {
       imageUrl: ''
     })
     setImagePreview('')
+    setAiAnalysis(null)  // Clear AI analysis on form reset
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -82,6 +212,77 @@ export function AddClothingForm() {
       <h2>Add New Clothing Item</h2>
       
       <ImageAutoFill onImageProcessed={handleImageProcessed} />
+      
+      {aiAnalysis && (
+        <div style={{
+          marginBottom: '20px',
+          padding: '15px',
+          backgroundColor: '#f0f7ff',
+          border: '1px solid #b3d9ff',
+          borderRadius: '8px'
+        }}>
+          <h3 style={{ marginTop: 0, color: '#1976D2' }}>AI Analysis Results</h3>
+          <div style={{ 
+            backgroundColor: '#ffffff', 
+            padding: '10px', 
+            borderRadius: '4px',
+            marginTop: '10px',
+            fontSize: '14px',
+            fontFamily: 'monospace'
+          }}>
+            <div style={{ marginBottom: '8px' }}>
+              <strong>Detected Attributes:</strong>
+            </div>
+            {aiAnalysis.detected && (
+              <div style={{ lineHeight: '1.8' }}>
+                {aiAnalysis.detected.name && (
+                  <div><strong>Name:</strong> {aiAnalysis.detected.name}</div>
+                )}
+                {aiAnalysis.detected.color && (
+                  <div><strong>Color:</strong> {aiAnalysis.detected.color}</div>
+                )}
+                {aiAnalysis.detected.type && (
+                  <div><strong>Type:</strong> {aiAnalysis.detected.type}</div>
+                )}
+                {aiAnalysis.detected.fabricType && (
+                  <div><strong>Fabric Type:</strong> {aiAnalysis.detected.fabricType}</div>
+                )}
+                {aiAnalysis.detected.brand && (
+                  <div><strong>Brand:</strong> {aiAnalysis.detected.brand}</div>
+                )}
+                {aiAnalysis.detected.fit && (
+                  <div><strong>Fit:</strong> {aiAnalysis.detected.fit}</div>
+                )}
+                {aiAnalysis.detected.graphicSize && (
+                  <div><strong>Graphic Size:</strong> {aiAnalysis.detected.graphicSize}</div>
+                )}
+                {(!aiAnalysis.detected.name && !aiAnalysis.detected.color && !aiAnalysis.detected.type && 
+                  !aiAnalysis.detected.fabricType && !aiAnalysis.detected.brand) && (
+                  <div style={{ color: '#666', fontStyle: 'italic' }}>
+                    No attributes detected. AI may not have found any information in the image.
+                  </div>
+                )}
+              </div>
+            )}
+            <details style={{ marginTop: '15px' }}>
+              <summary style={{ cursor: 'pointer', color: '#1976D2', fontWeight: '500' }}>
+                View Raw API Response
+              </summary>
+              <pre style={{ 
+                marginTop: '10px', 
+                padding: '10px', 
+                backgroundColor: '#f5f5f5', 
+                borderRadius: '4px',
+                overflow: 'auto',
+                maxHeight: '200px',
+                fontSize: '12px'
+              }}>
+                {JSON.stringify(aiAnalysis.raw, null, 2)}
+              </pre>
+            </details>
+          </div>
+        </div>
+      )}
       
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: '10px' }}>

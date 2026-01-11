@@ -7,16 +7,17 @@ interface ImageAutoFillProps {
     type?: string
     fabricType?: string
     brand?: string
+    rawResponse?: any
   }) => void
 }
 
-// Placeholder component for image auto-fill feature
-// This will connect to backend API for Gemini integration later
+// Image auto-fill component using Gemini AI
 export function ImageAutoFill({ onImageProcessed }: ImageAutoFillProps) {
-  // onImageProcessed will be used when backend is connected
-  void onImageProcessed
   const [imagePreview, setImagePreview] = useState<string>('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [progress, setProgress] = useState<string>('')
+  const [error, setError] = useState<string>('')
+  const [success, setSuccess] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,18 +29,77 @@ export function ImageAutoFill({ onImageProcessed }: ImageAutoFillProps) {
       const base64String = reader.result as string
       setImagePreview(base64String)
       setIsProcessing(true)
+      setProgress('Uploading image...')
+      setError('')
+      setSuccess(false)
 
-      // TODO: Connect to backend API for Gemini image analysis
-      // For now, this is a placeholder
-      setTimeout(() => {
-        // Simulate API call - replace with actual API call later
-        // const response = await fetch('/api/analyze-image', { ... })
-        // const data = await response.json()
-        // onImageProcessed(data)
+      try {
+        setProgress('Analyzing image with AI...')
         
-        alert('Image analysis feature - will connect to backend Gemini API')
+        // Call backend API for Gemini image analysis
+        const response = await fetch('/api/analyze-image', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            image: base64String
+          })
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`HTTP error! status: ${response.status}, ${errorText}`)
+        }
+
+        setProgress('Processing results...')
+        const data = await response.json()
+        
+        console.log('=== API Response (full):', JSON.stringify(data, null, 2))
+        console.log('=== API Response fields:', {
+          name: data.name,
+          color: data.color,
+          type: data.type,
+          fabricType: data.fabricType,
+          brand: data.brand,
+          graphicSize: data.graphicSize,
+          fit: data.fit
+        })
+        
+        // Call the callback with the detected attributes
+        const processedData = {
+          name: data.name || undefined,
+          color: data.color || undefined,
+          type: data.type || undefined,
+          fabricType: data.fabricType || undefined,
+          brand: data.brand || undefined
+        }
+        
+        console.log('=== Calling onImageProcessed with:', processedData)
+        console.log('=== Has data?', {
+          hasName: !!processedData.name,
+          hasColor: !!processedData.color,
+          hasType: !!processedData.type,
+          hasFabricType: !!processedData.fabricType,
+          hasBrand: !!processedData.brand
+        })
+        
+        onImageProcessed({
+          ...processedData,
+          rawResponse: data  // Pass full response for display
+        })
+        
+        setProgress('')
+        setSuccess(true)
+        setTimeout(() => setSuccess(false), 3000) // Hide success message after 3 seconds
+        
+      } catch (error) {
+        console.error('Error analyzing image:', error)
+        setError(error instanceof Error ? error.message : 'Error analyzing image')
+        setProgress('')
+      } finally {
         setIsProcessing(false)
-      }, 1000)
+      }
     }
     reader.readAsDataURL(file)
   }
@@ -58,7 +118,53 @@ export function ImageAutoFill({ onImageProcessed }: ImageAutoFillProps) {
         disabled={isProcessing}
         style={{ marginBottom: '10px' }}
       />
-      {isProcessing && <p>Analyzing image...</p>}
+      {isProcessing && (
+        <div style={{ marginTop: '10px', marginBottom: '10px' }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '10px',
+            padding: '10px',
+            backgroundColor: '#f0f7ff',
+            borderRadius: '4px',
+            border: '1px solid #b3d9ff'
+          }}>
+            <div style={{
+              width: '20px',
+              height: '20px',
+              border: '3px solid #f3f3f3',
+              borderTop: '3px solid #2196F3',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            <span style={{ color: '#1976D2', fontWeight: '500' }}>{progress || 'Analyzing image...'}</span>
+          </div>
+        </div>
+      )}
+      {error && (
+        <div style={{
+          marginTop: '10px',
+          padding: '10px',
+          backgroundColor: '#ffebee',
+          color: '#c62828',
+          borderRadius: '4px',
+          border: '1px solid #ef5350'
+        }}>
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+      {success && !isProcessing && (
+        <div style={{
+          marginTop: '10px',
+          padding: '10px',
+          backgroundColor: '#e8f5e9',
+          color: '#2e7d32',
+          borderRadius: '4px',
+          border: '1px solid #4caf50'
+        }}>
+          ✓ Image analyzed! Form fields have been auto-filled.
+        </div>
+      )}
       {imagePreview && (
         <img
           src={imagePreview}
@@ -66,9 +172,11 @@ export function ImageAutoFill({ onImageProcessed }: ImageAutoFillProps) {
           style={{ maxWidth: '300px', maxHeight: '300px', marginTop: '10px', display: 'block', borderRadius: '4px' }}
         />
       )}
-      <p style={{ fontSize: '12px', color: '#999', marginTop: '10px' }}>
-        Note: This feature will use Gemini AI to analyze the image and auto-fill form fields when backend is connected.
-      </p>
+      {!isProcessing && (
+        <p style={{ fontSize: '12px', color: '#999', marginTop: '10px' }}>
+          This feature uses Gemini AI to analyze the image and auto-fill form fields.
+        </p>
+      )}
     </div>
   )
 }

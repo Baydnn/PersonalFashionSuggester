@@ -3,8 +3,23 @@ import { useWardrobe } from '../context/WardrobeContext'
 export function WardrobeList() {
   const { state, dispatch } = useWardrobe()
 
-  const handleRemove = (id: string) => {
-    dispatch({ type: 'REMOVE_CLOTHING', payload: id })
+  const handleRemove = async (id: string) => {
+    try {
+      const response = await fetch(`/api/clothing/${id}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+        throw new Error(errorData.detail || `Failed to delete clothing item: ${response.status}`)
+      }
+
+      // Update frontend state after successful deletion
+      dispatch({ type: 'REMOVE_CLOTHING', payload: id })
+    } catch (error) {
+      console.error('Error deleting clothing item:', error)
+      alert(error instanceof Error ? error.message : 'Failed to delete clothing item. Please try again.')
+    }
   }
 
   if (state.clothes.length === 0) {

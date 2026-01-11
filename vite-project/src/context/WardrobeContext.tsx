@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer } from 'react'
+import { createContext, useContext, useReducer, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import type { ClothingItem, PersonalInfo, WardrobeData } from '../types'
 
@@ -54,6 +54,40 @@ const WardrobeContext = createContext<WardrobeContextType | undefined>(undefined
 
 export function WardrobeProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(wardrobeReducer, initialState)
+
+  // Load wardrobe data from backend on mount
+  useEffect(() => {
+    const loadWardrobe = async () => {
+      try {
+        // Load clothes
+        const clothesResponse = await fetch('/api/clothing')
+        if (clothesResponse.ok) {
+          const clothesData = await clothesResponse.json()
+          if (clothesData.clothes && Array.isArray(clothesData.clothes)) {
+            // Load personal info
+            const personalInfoResponse = await fetch('/api/personal-info')
+            let personalInfo = {}
+            if (personalInfoResponse.ok) {
+              personalInfo = await personalInfoResponse.json()
+            }
+            
+            // Set wardrobe data
+            dispatch({
+              type: 'SET_WARDROBE',
+              payload: {
+                clothes: clothesData.clothes,
+                personalInfo: personalInfo
+              }
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Error loading wardrobe:', error)
+      }
+    }
+
+    loadWardrobe()
+  }, [])
 
   return (
     <WardrobeContext.Provider value={{ state, dispatch }}>
